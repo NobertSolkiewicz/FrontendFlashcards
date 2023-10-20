@@ -21,7 +21,11 @@ ext {
 }
 
 dependencies {
+//    implementation project(':Flash-cards')
     implementation 'com.vaadin:vaadin-spring-boot-starter'
+    implementation 'com.vaadin:vaadin-core'
+    implementation group: 'org.json', name: 'json', version: '20210307'
+    implementation 'com.konghq:unirest-java:3.14.5'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
 }
 
