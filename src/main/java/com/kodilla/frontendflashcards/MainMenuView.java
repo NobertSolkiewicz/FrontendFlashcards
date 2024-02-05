@@ -1,25 +1,48 @@
 package com.kodilla.frontendflashcards;
 
+import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H1;
 import com.vaadin.flow.component.orderedlayout.FlexLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.Route;
+import jakarta.annotation.PostConstruct;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
+import org.springframework.web.reactive.function.client.WebClient;
+
+import java.util.List;
 
 @Route("main")
 @Component
 public class MainMenuView extends VerticalLayout {
 
-    private Div sideMenu;
+    private final Div sideMenu;
     private boolean isMenuOpen = false;
-    private Button createButton;
-    private Button myDecksButton;
-    private Button myAccountButton;
-    private Button logoutButton;
+    private final Button createButton;
+    private final Button myDecksButton;
+    private final Button myAccountButton;
+    private final Button logoutButton;
+    private final WebClient.Builder webClientBuilder;
+    private final WebClient webClient;
 
-    public MainMenuView() {
+    @Autowired
+    public MainMenuView(@Lazy WebClient.Builder webClientBuilder) {
+        this.webClientBuilder = webClientBuilder;
+        this.webClient = webClientBuilder.baseUrl("http://localhost:8080").build();
+
+        sideMenu = new Div();
+        createButton = new Button("Create Flashcard");
+        myDecksButton = new Button("My Decks");
+        myAccountButton = new Button("My Account");
+        logoutButton = new Button("Log Out");
+    }
+
+    @PostConstruct
+    public void initialize() {
         FlexLayout flexLayout = new FlexLayout();
         flexLayout.setSizeFull();
         flexLayout.setAlignItems(Alignment.CENTER);
@@ -38,7 +61,6 @@ public class MainMenuView extends VerticalLayout {
         menuButton.addClickListener(event -> toggleMenu());
         menuButton.getStyle().set("color", "black");
 
-        sideMenu = new Div();
         sideMenu.addClassName("side-menu");
         sideMenu.getStyle().set("width", "250px");
         sideMenu.getStyle().set("height", "100vh");
@@ -46,10 +68,6 @@ public class MainMenuView extends VerticalLayout {
         sideMenu.getStyle().set("background-color", "#E2DDCA");
         sideMenu.getStyle().set("border", "1px solid #000");
 
-        createButton = new Button("Create Flashcard");
-        myDecksButton = new Button("My Decks");
-        myAccountButton = new Button("My Account");
-        logoutButton = new Button("Log Out");
         logoutButton.getStyle().set("margin-top", "700px");
 
         createButton.getStyle().set("color", "black");
@@ -112,6 +130,8 @@ public class MainMenuView extends VerticalLayout {
         flexLayout.setSizeFull();
         flexLayout.setAlignItems(Alignment.CENTER);
 
+        initializeMenuButtons(webClient);
+
         add(pageTitle, menuButton, flexLayout);
     }
 
@@ -142,6 +162,31 @@ public class MainMenuView extends VerticalLayout {
         myAccountButton.setVisible(false);
         logoutButton.setVisible(false);
     }
+
+    private void handleButtonClick(String label) {
+        if (label != null && !label.isEmpty()) {
+            UI.getCurrent().navigate(label);
+        }
+    }
+
+    private void initializeMenuButtons(WebClient webClient) {
+        webClient.get()
+                .uri("/main-menu")
+                .retrieve()
+                .bodyToMono(new ParameterizedTypeReference<List<String>>() {})
+                .subscribe(
+                        menuLabels -> {
+                            if (menuLabels != null) {
+                                menuLabels.forEach(label -> {
+                                    Button menuButton = new Button(label);
+                                    menuButton.addClickListener(event -> handleButtonClick(label));
+                                    sideMenu.add(menuButton);
+                                });
+                            }
+                        },
+                        error -> {
+                            error.printStackTrace();
+                        }
+                );
+    }
 }
-
-

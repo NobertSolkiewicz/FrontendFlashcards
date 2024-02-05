@@ -1,20 +1,20 @@
 package com.kodilla.frontendflashcards;
 
-import com.vaadin.flow.component.Text;
+import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.html.Div;
+import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.PasswordField;
 import com.vaadin.flow.component.textfield.TextField;
-import com.vaadin.flow.data.binder.BeanValidationBinder;
 import com.vaadin.flow.router.Route;
-import kong.unirest.HttpResponse;
-import kong.unirest.Unirest;
-import kong.unirest.UnirestException;
-import org.json.JSONObject;
+import kong.unirest.json.JSONObject;
+import org.springframework.http.*;
 import org.springframework.stereotype.Component;
+import org.springframework.web.reactive.function.BodyInserters;
+import org.springframework.web.reactive.function.client.*;
 
 @Route("registration")
 @Component
@@ -44,9 +44,9 @@ public class RegistrationView extends VerticalLayout {
                 .set("box-shadow", "5px 5px 10px 0px rgba(0,0,0,0.75)")
                 .set("background-color", "#E2DDCA");
 
+//        Style flashcardTitleStyle = flashcardTitle.getStyle();
+
         FormLayout formLayout = new FormLayout();
-
-
 
         TextField usernameField = new TextField("username");
         usernameField.setWidthFull();
@@ -60,8 +60,7 @@ public class RegistrationView extends VerticalLayout {
         PasswordField confirmPasswordField = new PasswordField("confirm password");
         confirmPasswordField.setWidthFull();
 
-        Text message = new Text("");
-
+        Span message = new Span("");
 
         Button registerButton = new Button("Register", event -> {
             String username = usernameField.getValue();
@@ -74,17 +73,19 @@ public class RegistrationView extends VerticalLayout {
                 return;
             }
 
-            boolean registrationSuccess = registerUser(username, email, password);
+            boolean registrationSuccess = registerUser(username, email, password, confirmPassword); //tutaj błąd sprawdź
 
             if (registrationSuccess) {
                 Notification.show("Registration successful!");
-                getUI().ifPresent(ui -> ui.navigate("Login"));
                 message.setText("Registration successful!");
                 message.getStyle().set("color", "green");
+
+//                UI.getCurrent().access(() -> UI.getCurrent().navigate("login"));
+                UI.getCurrent().navigate("login");
             } else {
                 Notification.show("Registration failed. Please check your inputs.");
                 message.setText("Registration failed. Please check your inputs.");
-                message.getStyle().set("color", "red");
+                message.getElement().getStyle().set("color", "red");
             }
         });
         registerButton.addClassName("primary");
@@ -101,29 +102,29 @@ public class RegistrationView extends VerticalLayout {
         add(flashcardTitle, formContainer);
     }
 
-    private boolean registerUser(String username, String email, String password) {
-
+    private boolean registerUser(String username, String email, String password, String confirmPassword) {
         JSONObject userData = new JSONObject();
         userData.put("username", username);
         userData.put("email", email);
         userData.put("password", password);
+        userData.put("confirmPassword", confirmPassword);
+
+        WebClient webClient = WebClient.create("http://localhost:8080/auth/register");
 
         try {
-            HttpResponse<String> response = Unirest.post("https://example.com/api/register")
-                    .header("Content-Type", "application/json")
-                    .body(userData.toString())
-                    .asString();
+            ResponseEntity<Void> responseEntity = webClient.post()
+                    .uri("/auth/register/register")
+                    .body(BodyInserters.fromValue(userData.toString()))
+                    .retrieve()
+                    .toBodilessEntity()
+                    .block();
 
-            if (response.getStatus() == 200) {
-                getUI().ifPresent(ui -> ui.navigate(LoginView.class));
-                return true;
-            } else {
-                return false;
-            }
-        } catch (UnirestException e) {
+            System.out.println("Registration Status Code: " + responseEntity.getStatusCode());
+
+            return responseEntity.getStatusCode() == HttpStatus.OK;
+        } catch (Exception e) {
             e.printStackTrace();
+            return false;
         }
-        return true;
     }
-
 }
